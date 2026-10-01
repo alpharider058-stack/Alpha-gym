@@ -1,0 +1,6 @@
+{
+  "name": "IronPulse - Gym PWA & Coach IA",
+  "description": "App PWA de gimnasio con generador de rutinas paso a paso con IA, plan de transformación física a 6 meses y seguimiento de progreso con gráficas detalladas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
