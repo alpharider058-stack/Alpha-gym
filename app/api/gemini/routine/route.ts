@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 import { UserFitnessProfile, Routine, Plan6Months } from '@/types/gym';
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+import { generateGeminiContentWithFallback } from '@/lib/gemini-server';
 
 export async function POST(req: NextRequest) {
   let profile: UserFitnessProfile;
@@ -148,21 +139,25 @@ DEVUELVE ÚNICAMENTE UN OBJETO JSON VÁLIDO CON LA SIGUIENTE ESTRUCTURA EXACTA (
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const geminiResult = await generateGeminiContentWithFallback({
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.7,
-      },
+      responseMimeType: 'application/json',
+      temperature: 0.65,
     });
 
-    const text = response.text;
+    const text = geminiResult.text;
     if (!text) {
       throw new Error('Respuesta vacía de Gemini');
     }
 
-    const parsed = JSON.parse(text);
+    let cleanJson = text.trim();
+    if (cleanJson.startsWith('```json')) {
+      cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanJson.startsWith('```')) {
+      cleanJson = cleanJson.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const parsed = JSON.parse(cleanJson);
 
     // Build complete typed objects
     const routineId = `routine-ai-${Date.now()}`;

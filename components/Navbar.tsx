@@ -115,17 +115,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5">
-          {hasAiRoutine && onOpenCoachChat && (
+          {onOpenCoachChat && (
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={onOpenCoachChat}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl liquid-glass-button text-xs font-bold text-white shadow-lg"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shadow-lg transition ${
+                hasAiRoutine
+                  ? 'liquid-glass-button text-white border border-white/20'
+                  : 'liquid-glass-subtle text-zinc-300 hover:text-white border border-white/10'
+              }`}
               title="Preguntar a tu Entrenador Personal IA"
             >
               <MessageSquare className="w-3.5 h-3.5 text-white" />
               <span className="hidden sm:inline">Preguntar al Coach</span>
-              <span className="sm:hidden">Coach</span>
+              <span className="sm:hidden">Coach IA</span>
             </motion.button>
           )}
 

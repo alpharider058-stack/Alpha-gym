@@ -2,15 +2,17 @@
 
 import React, { useState } from 'react';
 import { usePWAInstall } from './usePWAInstall';
+import { useIsClient } from '@/hooks/useGymStore';
 import { Download, Share2, X, Smartphone } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const PWAInstallButton: React.FC = () => {
+  const isClient = useIsClient();
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
-  // If already running as an installed PWA, hide the button
-  if (isInstalled) {
+  // Avoid SSR / client initial hydration mismatch
+  if (!isClient || isInstalled) {
     return null;
   }
 

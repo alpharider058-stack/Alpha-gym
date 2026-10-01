@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
-import { Dumbbell, Target, LineChart, Sparkles } from 'lucide-react';
+import { Dumbbell, Target, LineChart, MessageSquare, Sparkles } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: 'routines' | 'plan' | 'progress' | 'profile';
@@ -59,18 +59,21 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         </button>
 
         <button
-          onClick={hasAiRoutine && onOpenCoachChat ? onOpenCoachChat : onOpenAiWizard}
+          onClick={onOpenCoachChat || onOpenAiWizard}
           className="flex flex-col items-center justify-center py-1 group text-zinc-400 hover:text-white"
         >
           <motion.div
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="w-7 h-7 rounded-xl bg-white text-black flex items-center justify-center shadow-lg shadow-white/20 transition-all"
+            className="w-7 h-7 rounded-xl bg-white text-black flex items-center justify-center shadow-lg shadow-white/20 transition-all relative"
           >
-            <Sparkles className="w-4 h-4 fill-black" />
+            <MessageSquare className="w-4 h-4 fill-black text-black" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-white ring-2 ring-black flex items-center justify-center">
+              <span className="w-1 h-1 rounded-full bg-black animate-ping" />
+            </span>
           </motion.div>
           <span className="text-[10px] font-bold text-white mt-1">
-            {hasAiRoutine ? 'Chat Coach' : 'Coach IA'}
+            Coach IA
           </span>
         </button>
 

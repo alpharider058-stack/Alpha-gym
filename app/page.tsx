@@ -15,6 +15,7 @@ import { ActiveWorkoutModal } from '@/components/workout/ActiveWorkoutModal';
 import { ProgressDashboard } from '@/components/progress/ProgressDashboard';
 import { AppEntranceIntro } from '@/components/intro/AppEntranceIntro';
 import { CoachChatModal } from '@/components/coach/CoachChatModal';
+import { useGymRoutines, useGymActivePlan, useIsClient } from '@/hooks/useGymStore';
 import { CheckCircle2, MessageSquare } from 'lucide-react';
 
 export default function GymHomePage() {
@@ -23,15 +24,10 @@ export default function GymHomePage() {
   // Entrance splash animation flag
   const [showIntro, setShowIntro] = useState(true);
 
-  // Stored state with lazy initializers
-  const [routines, setRoutines] = useState<Routine[]>(() => {
-    if (typeof window === 'undefined') return [];
-    return GymStorage.getRoutines();
-  });
-  const [activePlan, setActivePlan] = useState<Plan6Months | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return GymStorage.getActivePlan();
-  });
+  // Client mounted state for 100% hydration safety with localStorage
+  const isClient = useIsClient();
+  const routines = useGymRoutines();
+  const activePlan = useGymActivePlan();
 
   // Modals state
   const [showAiWizard, setShowAiWizard] = useState(false);
@@ -45,8 +41,8 @@ export default function GymHomePage() {
     day: RoutineDay;
   } | null>(null);
 
-  // Check if user has generated a routine with Coach IA or has an active plan
-  const hasAiRoutine = routines.some((r) => r.isAiGenerated) || !!activePlan;
+  // Check if user has generated a routine with Coach IA or has an active plan (only after mounted)
+  const hasAiRoutine = isClient && (routines.some((r) => r.isAiGenerated) || !!activePlan);
 
   // Toast banner state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -58,11 +54,8 @@ export default function GymHomePage() {
 
   // Callback from AI wizard
   const handleAiWizardSuccess = (newRoutine: Routine, newPlan: Plan6Months) => {
-    const updatedRoutines = GymStorage.addRoutine(newRoutine);
+    GymStorage.addRoutine(newRoutine);
     GymStorage.saveActivePlan(newPlan);
-
-    setRoutines(updatedRoutines);
-    setActivePlan(newPlan);
     setShowAiWizard(false);
     setActiveTab('plan'); // Automatically switch to "Mi Plan" as requested!
 
@@ -71,8 +64,7 @@ export default function GymHomePage() {
 
   // Manual routine save
   const handleSaveManualRoutine = (routine: Routine) => {
-    const updated = GymStorage.addRoutine(routine);
-    setRoutines(updated);
+    GymStorage.addRoutine(routine);
     setShowManualModal(false);
     setEditingRoutine(null);
     showToast(`Rutina "${routine.title}" guardada.`);
@@ -80,8 +72,7 @@ export default function GymHomePage() {
 
   // Delete routine
   const handleDeleteRoutine = (routineId: string) => {
-    const updated = GymStorage.deleteRoutine(routineId);
-    setRoutines(updated);
+    GymStorage.deleteRoutine(routineId);
     showToast('Rutina eliminada.');
   };
 
@@ -217,8 +208,8 @@ export default function GymHomePage() {
         />
       )}
 
-      {/* Floating Coach Chat Action Pill (when an AI routine or plan exists) */}
-      {hasAiRoutine && !showCoachChat && !showAiWizard && !activeSession && (
+      {/* Floating Coach Chat Action Pill */}
+      {isClient && !showCoachChat && !showAiWizard && !activeSession && (
         <motion.button
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -230,7 +221,7 @@ export default function GymHomePage() {
           title="Preguntar a tu Entrenador Personal IA"
         >
           <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-bold shadow-md shrink-0">
-            <MessageSquare className="w-4 h-4 fill-black" />
+            <MessageSquare className="w-4 h-4 fill-black text-black" />
           </div>
           <div className="text-left">
             <span className="text-xs font-bold text-white block leading-tight">

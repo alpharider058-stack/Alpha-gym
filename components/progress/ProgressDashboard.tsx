@@ -23,6 +23,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { ProgressiveOverloadAdvisorModal } from '@/components/ai/ProgressiveOverloadAdvisorModal';
+import { useGymWeightRecords, useGymWorkoutLogs, useGymPersonalRecords } from '@/hooks/useGymStore';
 
 interface ProgressDashboardProps {
   plan: Plan6Months | null;
@@ -33,15 +34,9 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   plan,
   onRefreshData,
 }) => {
-  const [weightRecords, setWeightRecords] = useState<WeightRecord[]>(() =>
-    GymStorage.getWeightRecords()
-  );
-  const [workoutLogs] = useState<WorkoutSessionLog[]>(() =>
-    GymStorage.getWorkoutLogs()
-  );
-  const [prs] = useState<PersonalRecord[]>(() =>
-    GymStorage.getPersonalRecords()
-  );
+  const weightRecords = useGymWeightRecords();
+  const workoutLogs = useGymWorkoutLogs();
+  const prs = useGymPersonalRecords();
 
   // Modal to log new weight
   const [showAddWeightModal, setShowAddWeightModal] = useState(false);
@@ -63,13 +58,12 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
     const kg = parseFloat(newWeightKg);
     if (!kg || isNaN(kg)) return;
 
-    const updated = GymStorage.addWeightRecord({
+    GymStorage.addWeightRecord({
       date: newDate,
       weightKg: kg,
       bodyFatPercent: newBodyFat ? parseFloat(newBodyFat) : undefined,
       notes: newNotes.trim() || undefined,
     });
-    setWeightRecords(updated);
     setShowAddWeightModal(false);
     if (onRefreshData) onRefreshData();
   };

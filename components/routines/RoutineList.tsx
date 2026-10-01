@@ -111,8 +111,8 @@ export const RoutineList: React.FC<RoutineListProps> = ({
         </div>
       </motion.div>
 
-      {/* AI Coach Personal Trainer Banner (Available when an AI routine exists) */}
-      {hasAiRoutine && onOpenCoachChat && (
+      {/* AI Coach Personal Trainer Banner */}
+      {onOpenCoachChat && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -124,13 +124,17 @@ export const RoutineList: React.FC<RoutineListProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white">Tu Entrenador Personal IA está Listo</span>
+                <span className="text-xs font-bold text-white">
+                  {hasAiRoutine ? 'Tu Entrenador Personal IA está Conectado' : 'Coach IA • Entrenador Personal'}
+                </span>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-white uppercase tracking-wider">
-                  Activo
+                  En Línea
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">
-                ¿Dudas sobre cómo ejecutar un ejercicio, sustituir una máquina ocupada o qué comer? Consulta a tu Coach en directo.
+                {hasAiRoutine
+                  ? '¿Dudas sobre cómo ejecutar un ejercicio de tu rutina, sustituir una máquina ocupada o nutrición? Consulta en directo.'
+                  : 'Pregúntale cualquier duda sobre el gimnasio, técnicas de ejercicios, dudas de nutrición o rutinas personalizadas.'}
               </p>
             </div>
           </div>

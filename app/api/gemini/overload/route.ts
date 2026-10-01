@@ -1,14 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+import { generateGeminiContentWithFallback } from '@/lib/gemini-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +32,7 @@ REGLAS DE SOBRECARGA CIENTÍFICA:
 DEVUELVE ÚNICAMENTE UN JSON CON ESTA ESTRUCTURA (sin markdown adicional):
 {
   "nextWeightKg": number,
-  "nextReps": string,
+  "nextReps": "string",
   "progressionMethod": "doble_progresion" | "sobrecarga_lineal" | "densidad_tempo" | "micro_descarga",
   "recommendationTitle": "string",
   "detailedReasoning": "string",
@@ -50,18 +41,21 @@ DEVUELVE ÚNICAMENTE UN JSON CON ESTA ESTRUCTURA (sin markdown adicional):
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const geminiResult = await generateGeminiContentWithFallback({
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.5,
-      },
+      responseMimeType: 'application/json',
+      temperature: 0.5,
     });
 
-    const text = response.text;
+    const text = geminiResult.text;
     if (text) {
-      const parsed = JSON.parse(text);
+      let cleanJson = text.trim();
+      if (cleanJson.startsWith('```json')) {
+        cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanJson.startsWith('```')) {
+        cleanJson = cleanJson.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      const parsed = JSON.parse(cleanJson);
       return NextResponse.json(parsed);
     }
     throw new Error('Respuesta vacía');

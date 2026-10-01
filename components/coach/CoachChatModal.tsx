@@ -54,19 +54,27 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
 }) => {
   const [messages, setMessages] = useState<CoachChatMessage[]>(() => {
     const stored = GymStorage.getCoachChat();
-    if (stored.length > 0) return stored;
+    // Clean out any legacy generic fallback messages that may have been saved
+    const validStored = stored.filter(
+      (m) => !m.text.includes('fase excéntrica (bajada en 2-3 segundos)') &&
+             !m.text.includes('activar la vía mTOR')
+    );
+    if (validStored.length > 0) return validStored;
 
     const routineName = activeRoutine?.title || 'tu entrenamiento';
     const goal = activePlan?.profileSnapshot?.goal || activeRoutine?.userProfile?.goal || 'tus objetivos';
     const initialGreeting: CoachChatMessage = {
       id: generateUniqueId('msg-init'),
       sender: 'coach',
-      text: `¡Hola! Soy tu **Coach IA personal**. Tengo acceso a tu rutina **"${routineName}"** y a tus metas de **${goal}**.\n\nPuedes preguntarme cualquier duda sobre el gimnasio: cómo ejecutar un ejercicio, cómo sustituir una máquina ocupada, ajustes de calentamiento, fatiga, nutrición o técnica. ¿En qué te ayudo hoy?`,
+      text: activeRoutine
+        ? `¡Hola! Soy tu **Coach IA personal**. Estoy conectado a tu rutina **"${routineName}"** y enfocado en tu meta de **${goal}**.\n\nPuedes preguntarme exactamente lo que necesites: dudas sobre cómo ejecutar un ejercicio, cómo sustituir una máquina ocupada, si debes subir peso, qué comer antes o después de entrenar, o pedirme que cambiemos algún ejercicio de tu rutina. ¿Qué duda tienes hoy?`
+        : `¡Hola! Soy tu **Coach IA personal** de IronPulse.\n\nEstoy aquí para responder cualquier pregunta que tengas sobre el gimnasio: cómo empezar, dudas sobre ejercicios, técnica, dolor o molestias, nutrición o cómo organizar tu entrenamiento. ¿En qué te puedo ayudar hoy?`,
       timestamp: getCurrentTimeLabel(),
       suggestedFollowUps: [
-        '¿Cómo caliento para mi rutina de hoy?',
+        '¿Cómo caliento para mi sesión de hoy?',
         '¿Qué hago si una máquina está ocupada?',
-        '¿Cómo sé cuándo subir de peso?',
+        '¿Cómo sé si debo subir peso o repeticiones?',
+        '¿Qué debo comer después de entrenar?',
       ],
     };
     GymStorage.saveCoachChat([initialGreeting]);
@@ -75,6 +83,7 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
 
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [appliedUpdateNotice, setAppliedUpdateNotice] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -105,7 +114,8 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
     setIsLoading(true);
 
     try {
-      const historyForApi = updatedMessages.map((m) => ({
+      // Send chat history without duplicating current message
+      const historyForApi = messages.map((m) => ({
         role: m.sender === 'user' ? ('user' as const) : ('model' as const),
         text: m.text,
       }));
@@ -126,10 +136,53 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
       if (!res.ok) throw new Error('Error al consultar al Coach IA');
       const data = await res.json();
 
+      // Check if Coach IA proposed and executed a routine modification
+      if (data.routineUpdate && activeRoutine) {
+        const update = data.routineUpdate;
+        try {
+          const currentRoutines = GymStorage.getRoutines();
+          const targetRoutine = currentRoutines.find((r) => r.id === activeRoutine.id) || activeRoutine;
+          const updatedDays = [...targetRoutine.days];
+
+          if (update.action === 'replace_exercise' && update.newExercise) {
+            let replaced = false;
+            updatedDays.forEach((day, dIdx) => {
+              if (update.targetDayIndex !== undefined && update.targetDayIndex !== dIdx) return;
+              const exIdx = day.exercises.findIndex(
+                (e) => e.name.toLowerCase().includes((update.exerciseName || '').toLowerCase())
+              );
+              if (exIdx >= 0) {
+                day.exercises[exIdx] = {
+                  id: `ex-mod-${Date.now()}`,
+                  name: update.newExercise.name,
+                  muscleGroup: update.newExercise.muscleGroup || day.exercises[exIdx].muscleGroup,
+                  notes: update.newExercise.notes || day.exercises[exIdx].notes,
+                  sets: Array.from({ length: update.newExercise.sets || 3 }, (_, sIdx) => ({
+                    setNumber: sIdx + 1,
+                    targetReps: update.newExercise.reps || '8-10',
+                    targetWeightKg: 20,
+                    restSeconds: 90,
+                  })),
+                };
+                replaced = true;
+              }
+            });
+            if (replaced) {
+              const modifiedRoutine = { ...targetRoutine, days: updatedDays };
+              GymStorage.addRoutine(modifiedRoutine);
+              setAppliedUpdateNotice(update.confirmationMessage || `Se ha actualizado "${update.newExercise.name}" en tu rutina.`);
+              setTimeout(() => setAppliedUpdateNotice(null), 6000);
+            }
+          }
+        } catch (updateErr) {
+          console.error('Error applying routine update:', updateErr);
+        }
+      }
+
       const coachMsg: CoachChatMessage = {
         id: generateUniqueId('msg-c'),
         sender: 'coach',
-        text: data.reply || 'Entendido. Sigue manteniendo la técnica estricta.',
+        text: data.reply || 'Entendido. Estoy aquí para resolver cualquier duda que tengas sobre tu entrenamiento.',
         timestamp: getCurrentTimeLabel(),
         suggestedFollowUps: data.suggestedFollowUps || [],
       };
@@ -142,9 +195,9 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
       const errorMsg: CoachChatMessage = {
         id: generateUniqueId('msg-err'),
         sender: 'coach',
-        text: 'He tenido un pequeño problema de conexión, pero como recomendación general: prioriza siempre el control excéntrico del movimiento y el descanso adecuado entre series pesadas.',
+        text: 'Disculpa, ha ocurrido un leve retraso en la conexión. Por favor pulsa en reenviar o escribe de nuevo tu consulta para darte la respuesta exacta.',
         timestamp: getCurrentTimeLabel(),
-        suggestedFollowUps: ['¿Cuánto tiempo debo descansar entre series?'],
+        suggestedFollowUps: ['¿Cómo realizo correctamente este ejercicio?', 'Reintentar'],
       };
       const finalMessages = [...updatedMessages, errorMsg];
       setMessages(finalMessages);
@@ -155,10 +208,22 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
   };
 
   const handleClearChat = () => {
-    if (confirm('¿Deseas reiniciar la conversación con tu Coach IA?')) {
-      GymStorage.clearCoachChat();
-      setMessages([]);
-    }
+    GymStorage.clearCoachChat();
+    const routineName = activeRoutine?.title || 'tu entrenamiento';
+    const goal = activePlan?.profileSnapshot?.goal || activeRoutine?.userProfile?.goal || 'tus objetivos';
+    const freshGreeting: CoachChatMessage = {
+      id: generateUniqueId('msg-fresh'),
+      sender: 'coach',
+      text: `¡Conversación reiniciada! Soy tu **Coach IA personal**. Estoy listo para responder directamente cualquier pregunta que tengas sobre tu rutina **"${routineName}"**, ejercicios, técnica o nutrición. ¿Qué necesitas saber?`,
+      timestamp: getCurrentTimeLabel(),
+      suggestedFollowUps: [
+        '¿Cómo caliento para mi rutina de hoy?',
+        '¿Qué hago si una máquina está ocupada?',
+        '¿Cómo sé cuándo subir de peso?',
+      ],
+    };
+    setMessages([freshGreeting]);
+    GymStorage.saveCoachChat([freshGreeting]);
   };
 
   return (
@@ -237,6 +302,14 @@ export const CoachChatModal: React.FC<CoachChatModalProps> = ({
                 Cuidado: {activePlan.profileSnapshot.injuriesOrLimitations}
               </span>
             )}
+          </div>
+        )}
+
+        {/* Real-time Routine Update Notification */}
+        {appliedUpdateNotice && (
+          <div className="bg-emerald-950/70 border-b border-emerald-500/30 px-4 py-2 flex items-center gap-2 text-xs text-emerald-200 animate-in fade-in slide-in-from-top-1">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-semibold">{appliedUpdateNotice}</span>
           </div>
         )}
 

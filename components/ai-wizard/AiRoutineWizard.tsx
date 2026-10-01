@@ -51,6 +51,7 @@ export const AiRoutineWizard: React.FC<AiRoutineWizardProps> = ({
   const totalSteps = 10;
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationTipIndex, setGenerationTipIndex] = useState(0);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
   // User responses state
   const [formData, setFormData] = useState<UserFitnessProfile>({
@@ -131,6 +132,7 @@ export const AiRoutineWizard: React.FC<AiRoutineWizardProps> = ({
   };
 
   const handleSubmit = async () => {
+    setErrorNotice(null);
     setIsGenerating(true);
     const interval = setInterval(() => {
       setGenerationTipIndex((prev) => (prev + 1) % tips.length);
@@ -151,16 +153,20 @@ export const AiRoutineWizard: React.FC<AiRoutineWizardProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error('Error al generar la rutina');
+        throw new Error('Error en la respuesta del servidor al generar la rutina');
       }
 
       const data = await res.json();
       clearInterval(interval);
-      onSuccess(data.routine, data.plan6Months);
-    } catch (err) {
+      if (data && data.routine && data.plan6Months) {
+        onSuccess(data.routine, data.plan6Months);
+      } else {
+        throw new Error('Formato de datos de rutina inválido');
+      }
+    } catch (err: any) {
       console.error(err);
       clearInterval(interval);
-      alert('Generando con el motor analítico de respaldo.');
+      setErrorNotice(err?.message || 'Hubo una dificultad al conectar con la IA. Por favor, vuelve a intentar.');
     } finally {
       setIsGenerating(false);
     }
@@ -873,6 +879,19 @@ export const AiRoutineWizard: React.FC<AiRoutineWizardProps> = ({
               )}
             </motion.div>
           </AnimatePresence>
+        )}
+
+        {/* Error notification banner if API call failed */}
+        {errorNotice && !isGenerating && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-red-950/40 border border-red-500/30 text-xs text-red-200 flex items-center justify-between gap-3">
+            <span>{errorNotice}</span>
+            <button
+              onClick={handleSubmit}
+              className="px-3 py-1 rounded-xl bg-white text-black font-bold text-[11px] hover:bg-zinc-200 shrink-0"
+            >
+              Reintentar
+            </button>
+          </div>
         )}
 
         {/* Footer Navigation Buttons */}

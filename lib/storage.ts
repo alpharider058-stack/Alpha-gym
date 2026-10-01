@@ -9,7 +9,7 @@ import {
 } from '@/types/gym';
 
 // Storage keys v2: Starts 100% clean with NO mock data
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   ROUTINES: 'ironpulse_clean_routines_v2',
   ACTIVE_PLAN: 'ironpulse_clean_active_plan_v2',
   WORKOUT_LOGS: 'ironpulse_clean_workout_logs_v2',
@@ -19,6 +19,31 @@ const STORAGE_KEYS = {
   ACTIVE_SESSION: 'ironpulse_clean_active_session_v2',
   COACH_CHAT: 'ironpulse_clean_coach_chat_v2',
 };
+
+const storageListeners = new Set<() => void>();
+
+export function subscribeToGymStorage(callback: () => void) {
+  storageListeners.add(callback);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', callback);
+  }
+  return () => {
+    storageListeners.delete(callback);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', callback);
+    }
+  };
+}
+
+export function notifyStorageListeners() {
+  storageListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
 
 export const GymStorage = {
   getRoutines(): Routine[] {
@@ -35,6 +60,7 @@ export const GymStorage = {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+      notifyStorageListeners();
     } catch (e) {
       console.error('Failed to save routines to storage', e);
     }
@@ -89,6 +115,7 @@ export const GymStorage = {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_PLAN, JSON.stringify(plan));
+      notifyStorageListeners();
     } catch (e) {
       console.error('Failed to save active plan', e);
     }
@@ -121,6 +148,7 @@ export const GymStorage = {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_KEYS.WORKOUT_LOGS, JSON.stringify(updated));
+        notifyStorageListeners();
       } catch (e) {
         console.error(e);
       }
@@ -152,6 +180,7 @@ export const GymStorage = {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_KEYS.WEIGHT_RECORDS, JSON.stringify(updated));
+        notifyStorageListeners();
       } catch (e) {
         console.error(e);
       }
